@@ -32,45 +32,6 @@ type Span struct {
 // Duration returns the duration of the span.
 func (s *Span) Duration() time.Duration { return s.EndTime.Sub(s.StartTime) }
 
-// Option configures a recorder instance.
-type Option interface {
-	configure(r *Recorder)
-}
-
-type withProbeInterval time.Duration
-
-// WithProbeInterval configures the duration between consecutive connectivity
-// probes.
-func WithProbeInterval(d time.Duration) Option {
-	return withProbeInterval(d)
-}
-
-func (i withProbeInterval) configure(r *Recorder) {
-	r.probeInterval = time.Duration(i)
-}
-
-type withProbeTimeout time.Duration
-
-// WithProbeTimeout configures the timeout for individual connectivity probes.
-func WithProbeTimeout(d time.Duration) Option {
-	return withProbeTimeout(d)
-}
-
-func (i withProbeTimeout) configure(r *Recorder) {
-	r.probeTimeout = time.Duration(i)
-}
-
-type withProbe Probe
-
-// WithProbe configuress the used connectivity probe.
-func WithProbe(probe Probe) Option {
-	return withProbe(probe)
-}
-
-func (f withProbe) configure(r *Recorder) {
-	r.probe = Probe(f)
-}
-
 // Recorder records one's connectivity.
 type Recorder struct {
 	mu    sync.Mutex // guards
@@ -82,6 +43,8 @@ type Recorder struct {
 	probeTimeout  time.Duration
 
 	done chan struct{}
+
+	maxSpans int
 }
 
 // NewRecorder returns new connectivity recorder.
@@ -153,6 +116,9 @@ func (c *Recorder) record() {
 
 	if len(c.spans) == 0 || c.spans[len(c.spans)-1].Kind != kind {
 		now := time.Now()
+		if c.maxSpans > 0 && len(c.spans) == c.maxSpans {
+			c.spans = c.spans[1:]
+		}
 		c.spans = append(c.spans, Span{
 			StartTime: now,
 			EndTime:   now,
