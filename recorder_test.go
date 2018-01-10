@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/Bo0mer/connectivity"
-	"github.com/Bo0mer/connectivitycheck"
 )
 
 func TestRecorderSimple(t *testing.T) {
@@ -54,11 +53,47 @@ func TestRecorderAlternatingProbes(t *testing.T) {
 		t.Errorf("want %d span, got: %d", nProbes, len(spans))
 	}
 	if spans[0].Kind != connectivity.Offline {
-		t.Errorf("wrong initial span Kind -- want %d, got: %d", connectivitycheck.Offline, spans[0].Kind)
+		t.Errorf("wrong initial span Kind -- want %d, got: %d", connectivity.Offline, spans[0].Kind)
 	}
 	for i := 0; i < len(spans)-1; i += 2 {
 		if spans[i].Kind == spans[i+1].Kind {
 			t.Errorf("spans %d and %d have same kind, they shouldn't", i, i+1)
 		}
 	}
+}
+
+func TestRecordWithMaxSpans(t *testing.T) {
+	var maxSpans = 5
+	var err error
+	probe := func(_ context.Context) error {
+		if err != nil {
+			err = nil
+		} else {
+			err = errors.New("i/o timeout")
+		}
+		return err
+	}
+
+	r := connectivity.NewRecorder(
+		connectivity.WithProbe(probe),
+		connectivity.WithProbeInterval(time.Millisecond),
+		connectivity.WithMaxSpans(maxSpans),
+	)
+
+	time.Sleep(time.Millisecond * 20)
+	r.Stop()
+
+	spans := r.Spans()
+	if len(spans) != maxSpans {
+		t.Errorf("want %d span, got: %d", maxSpans, len(spans))
+	}
+	if spans[0].Kind != connectivity.Online {
+		t.Errorf("wrong initial span Kind -- want %d, got: %d", connectivity.Online, spans[0].Kind)
+	}
+	for i := 0; i < len(spans)-1; i += 2 {
+		if spans[i].Kind == spans[i+1].Kind {
+			t.Errorf("spans %d and %d have same kind, they shouldn't", i, i+1)
+		}
+	}
+
 }
