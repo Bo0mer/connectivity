@@ -1,0 +1,9 @@
+language: go
+
+go:
+  - 1.9.2
+  - 1.10beta1
+
+script:
+  - go test ./...
+
